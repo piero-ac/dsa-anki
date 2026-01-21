@@ -1,4 +1,3 @@
-import { Rat } from "lucide-react";
 import { FSRS, Rating, Card, FSRSParameters, generatorParameters} from "ts-fsrs";
 
 type FSRSRating = Exclude<Rating, Rating.Manual>;
