@@ -1,13 +1,19 @@
 import { db } from "db/client";
 import { reviewCards } from "db/schema";
-import { Card, createEmptyCard, State } from "ts-fsrs";
+import { Card as FSRSCard, createEmptyCard, State } from "ts-fsrs";
 import { eq } from "drizzle-orm";
+
+export interface CardWithProblem extends FSRSCard {
+  problemId: string;
+  problemNumber: number;
+}
 
 /**
  * Convert DB row -> FSRS card
  */
 
-function rowToCard(row: typeof reviewCards.$inferSelect): Card {
+// Only FSRS card (for FSRS functions)
+export function rowToFSRSCard(row: typeof reviewCards.$inferSelect): FSRSCard {
   return {
     due: new Date(row.due),
     stability: row.stability,
@@ -22,10 +28,21 @@ function rowToCard(row: typeof reviewCards.$inferSelect): Card {
   };
 }
 
+// FSRS + problem info (for frontend/display)
+export function rowToCardWithProblem(
+  row: typeof reviewCards.$inferSelect,
+): CardWithProblem {
+  return {
+    problemId: row.problemId,
+    problemNumber: row.problemNumber,
+    ...rowToFSRSCard(row),
+  };
+}
+
 /**
  * Get a review card by problem_id
  */
-export function getReviewCard(problemId: string): Card | null {
+export function getReviewCard(problemId: string): FSRSCard | null {
   const row = db
     .select()
     .from(reviewCards)
@@ -34,13 +51,13 @@ export function getReviewCard(problemId: string): Card | null {
 
   if (!row) return null;
 
-  return rowToCard(row);
+  return rowToFSRSCard(row); // only FSRSCard
 }
 
 /**
  * Create a fresh card if missing
  */
-export function getOrCreateReviewCard(problemId: string): Card {
+export function getOrCreateReviewCard(problemId: string): FSRSCard {
   const existing = getReviewCard(problemId);
   if (existing) return existing;
 
@@ -68,7 +85,7 @@ export function getOrCreateReviewCard(problemId: string): Card {
  * Save updated FSRS card back to DB
  */
 
-export function saveReviewCard(problemId: string, card: Card) {
+export function saveReviewCard(problemId: string, card: FSRSCard) {
   db.update(reviewCards)
     .set({
       due: card.due.toISOString(),
@@ -82,4 +99,9 @@ export function saveReviewCard(problemId: string, card: Card) {
     })
     .where(eq(reviewCards.problemId, problemId))
     .run();
+}
+
+export function getAllCards(): CardWithProblem[] {
+  const rows = db.select().from(reviewCards).all();
+  return rows.map(rowToCardWithProblem);
 }
